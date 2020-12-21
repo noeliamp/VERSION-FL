@@ -119,6 +119,7 @@ class Scenario:
         #     y4 = 165.54923675778042
         #     landmark = LandMark(1,x4,y4, self, self.zois_list[0],100)
         #     self.landmark_list.append(landmark)
+        #quiero probar un cambio
 
 
         if self.num_landmarks == 2:
