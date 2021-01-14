@@ -53,8 +53,6 @@ class User:
         self.used_memory = 0
         self.vx = 0
         self.vy = 0
-        self.not_yet = False
-        self.not_yet_merged = False
         self.out = False
         self.entering_landmark = [True]*self.scenario.num_landmarks
         self.x_origin = 0
@@ -63,7 +61,8 @@ class User:
         self.contacts_per_slot_dynamic = OrderedDict()
         self.contacts_per_slot_static = OrderedDict()
         self.myFuture = OrderedDict()
-        self.existing = True
+        self.existing1 = True
+        self.existing2 = True
         self.observations = OrderedDict()
         self.calculateZones(1)
         self.observation_to_train = None
@@ -158,7 +157,7 @@ class User:
                 # We do not keep information about the zones where the node is out
                 # if self.ongoing_conn == False:
                 self.deleteModels(z)
-                self.observations = OrderedDict()
+                
             # print("zoi:", z, self.zones[z])
 
         # print("estoy en:",self.myFuture[c])
@@ -197,6 +196,9 @@ class User:
         self.model_list = []
         self.pending_model_list = []
         self.computing_counter = 0
+        self.merging_counter = 0
+        self.list_to_merge = []
+        self.observations = OrderedDict()
     
     def getNextWayPoint(self):
         self.x2 = np.random.uniform(-self.scenario.max_area,self.scenario.max_area)
@@ -619,7 +621,11 @@ class User:
                             # print("I found a peer not busy and without ongoing connection. ", neighbour.id)
                             break
                 if neighbour != None:
-                    self.existing = True
+                    self.existing1 = True
+                    self.existing2 = True
+                    neighbour.existing1 = True
+                    neighbour.existing2 = True
+
                     self.scenario.attempts +=1
                     # print("Attempts--- ", self.scenario.attempts)
                     self.connection_duration += 1
@@ -636,42 +642,103 @@ class User:
                     neighbour.db_exchange = False
                     self.scenario.used_mbs = 0
                     # First, check the messages missing in the peers devices and add them to the exchange list of messages of every peer
-                    for m in self.model_list:
-                        if m not in self.exchange_list:
+                    for m1 in self.model_list:
+                        if m1 not in self.exchange_list:
                         # if m not in neighbour.pending_model_list and m not in neighbour.model_list and m not in self.exchange_list:
-                            for pickCont in m.contributions.keys():
-                                for nm in neighbour.pending_model_list:
-                                    if pickCont not in nm.contributions.keys():
-                                        self.existing = False
-                                        break
-                                for nm in neighbour.model_list:
-                                    if pickCont not in nm.contributions.keys():
-                                        self.existing = False
-                                        break
-                        
+                            for pickCont1 in m1.contributions.keys():
+                                if len(neighbour.pending_model_list) > 0:
+                                    for nm1 in neighbour.pending_model_list: 
+                                        if pickCont1 not in nm1.contributions.keys():
+                                            self.existing1 = False
+                                            if self.id == 33:
+                                                print(pickCont1)
+                                                print("las otras contributions le falta a pendings--->", nm1.contributions.keys())
+                                            break
+                                if len(neighbour.model_list) > 0:
+                                    for nm2 in neighbour.model_list:
+                                        if pickCont1 not in nm2.contributions.keys():
+                                            self.existing2 = False
+                                            if self.id == 33:
+                                                print(pickCont1)
+                                                print("las otras contributions le falta al modelo--->", nm2.contributions.keys())
+                                            break
 
+                                if len(neighbour.pending_model_list) == 0:
+                                    self.existing1 = False
+                                    if self.id == 33:
+                                        print("no tiene pendings el neighbour!")
+                                if len(neighbour.model_list) == 0:
+                                    self.existing2 = False
+                                    if self.id == 33:
+                                        print("no tiene models el neighbour!")
 
-                            # if tuple((5119, 1, 92)) in m.contributions.keys():
-                            #     print(c," 1 aver que etoy pasando aqui de--->", self.id, "a-->", neighbour.id)
-                            if not self.existing:
-                                self.exchange_list.append(m)
-                                self.exchange_size = self.exchange_size + m.size
-                                if len(self.counter_list) == 0:
-                                    self.counter_list.append(m.size)
-                                else:
-                                    self.counter_list.append(self.counter_list[-1]+m.size)
+                            
+
+                            if not self.existing1 and not self.existing2:
+                                self.existing1 = True
+                                self.existing2 = True
+                                if m1 not in self.exchange_list:
+                                    self.exchange_list.append(m1.copy())
+                                    self.exchange_size = self.exchange_size + m1.size
+                                    if len(self.counter_list) == 0:
+                                        self.counter_list.append(m1.size)
+                                    else:
+                                        self.counter_list.append(self.counter_list[-1]+m1.size)
+
+                                    if self.id == 33:
+                                        print("entro en meter el modelo en exchange list")
+                                        print("self contributions",m1.contributions.keys())
+                                        print("self--->",self.existing1, self.existing2)
 
                     np.random.shuffle(self.exchange_list)
-                    for m in neighbour.model_list:
-                        if m not in self.pending_model_list and m not in self.model_list and m not in neighbour.exchange_list: 
-                            if tuple((5119, 1, 92)) in m.contributions.keys():
-                                print(c," 2 aver que etoy pasando aqui--->", neighbour.id, "a-->", self.id)
-                            neighbour.exchange_list.append(m)
-                            neighbour.exchange_size = neighbour.exchange_size + m.size
-                            if len(neighbour.counter_list) == 0:
-                                neighbour.counter_list.append(m.size)
-                            else:
-                                neighbour.counter_list.append(neighbour.counter_list[-1]+m.size)
+                    
+                    for m2 in neighbour.model_list:
+                        if m2 not in neighbour.exchange_list:
+                        # if m not in self.pending_model_list and m not in self.model_list and m not in neighbour.exchange_list: 
+                            for pickCont2 in m2.contributions.keys():
+
+                                if len(self.pending_model_list) > 0:
+                                    for nm3 in self.pending_model_list:    
+                                        if pickCont2 not in nm3.contributions.keys():
+                                            neighbour.existing1 = False
+                                            if self.id == 33:
+                                                print(pickCont2)
+                                                print("las otras contributions le falta a pendings--->", nm3.contributions.keys())
+                                            break
+
+                                if len(self.model_list) > 0:
+                                    for nm4 in self.model_list:  
+                                        if pickCont2 not in nm4.contributions.keys():
+                                            neighbour.existing2 = False
+                                            if self.id == 33:
+                                                print(pickCont2)
+                                                print("las otras contributions le falta al modelo--->", nm4.contributions.keys())
+                                            break
+
+                                if len(self.pending_model_list) == 0:
+                                    neighbour.existing1 = False
+                                    if self.id == 33:
+                                        print("no tengo pendings!")
+                                if len(self.model_list) == 0:
+                                    neighbour.existing2 = False
+                                    if self.id == 33:
+                                        print("no tengo models!")
+
+                            if not neighbour.existing1 and not neighbour.existing2:
+                                neighbour.existing1 = True
+                                neighbour.existing2 = True
+                                if m2 not in neighbour.exchange_list:
+                                    neighbour.exchange_list.append(m2.copy())
+                                    neighbour.exchange_size = neighbour.exchange_size + m2.size
+                                    if len(neighbour.counter_list) == 0:
+                                        neighbour.counter_list.append(m2.size)
+                                    else:
+                                        neighbour.counter_list.append(neighbour.counter_list[-1]+m2.size)
+
+                                    if self.id == 33:
+                                        print("Entro en meter el modelo en exchange list")
+                                        print("neighbour contributions",m2.contributions.keys())
+                                        print("neighbour--->",neighbour.existing1, neighbour.existing2)
 
                     # After choosing the messages that are missing in the peer, we need to shuffle the list
                     np.random.shuffle(neighbour.exchange_list)
@@ -832,10 +899,14 @@ class User:
         if len(self.exchange_list) > 0:
             for i in range(0,len(self.counter_list)): 
                 if (self.counter_list[i] <= self.exchange_counter):
-                    # print(self.id,"Adding message to neighbour DB: ", len(neighbour.pending_model_list), len(neighbour.model_list))
-                    if tuple((5119, 1, 92)) in self.exchange_list[i].contributions.keys():
-                        print("meto en neighbour list--->", self.exchange_list[i].contributions.keys())
+                    if neighbour.id == 33:
+                        print(self.id,"Adding model to neighbour DB: ", len(neighbour.pending_model_list))
+                        
                     neighbour.pending_model_list.append(self.exchange_list[i].copy())
+                    if neighbour.id == 33:
+                        print(self.id,"Adding model to neighbour DB 2: ", len(neighbour.pending_model_list))
+                        print(self.exchange_list[i].contributions.keys())
+                        
                     if len(self.exchange_list[i].contributions) > 0:
                         obs = OrderedDict()
                         for k in range(self.scenario.num_landmarks):
@@ -853,10 +924,14 @@ class User:
         if len(neighbour.exchange_list) > 0:
             for j in range(0,len(neighbour.counter_list)):
                 if (neighbour.counter_list[j] <= neighbour.exchange_counter): 
-                    # print(self.id,"Adding message to my DB: ", len(self.pending_model_list), len(self.model_list))
-                    if tuple((5119, 1, 92)) in neighbour.exchange_list[j].contributions.keys():
-                        print("meto en mi list--->", neighbour.exchange_list[j].contributions.keys())
+                    if self.id == 33:
+                        print(self.id,"Adding model to my DB: ", len(self.pending_model_list))
                     self.pending_model_list.append(neighbour.exchange_list[j].copy())
+
+                    if self.id == 33:
+                        print(self.id,"Adding model to my DB: ", len(self.pending_model_list))
+                        print(neighbour.exchange_list[j].contributions.keys())
+                   
                     if len(neighbour.exchange_list[j].contributions) > 0:
                         obs = OrderedDict()
                         for k in range(self.scenario.num_landmarks):
@@ -922,167 +997,199 @@ class User:
 
 
     def computeTask(self,c):
-        # if self.id == 92:
-        #     print("compute task node:",self.id,"my pendings-->", len(self.pending_model_list))
-        #     print("tengo algun modelo ya?", len(self.model_list))
 
         if self.out:
+            if self.id == 33:
+                print(self.id,"stoy out")
             self.computing_counter = 0
             self.merging_counter = 0
             self.list_to_merge = []
            
         if not self.out:
+            if self.id == 33:
+                print(self.id,"estoy in",self.merging_counter,self.computing_counter,len(self.pending_model_list))
             # no he empezado a ejecutar ninguna tarea y tengo tareas pendientes
             if self.computing_counter == 0 and len(self.pending_model_list) > 0 and self.merging_counter == 0:
-                print(self.id, "entro solo") 
 
-                #if it is the first time I have to do the merge, then go here
-                if self.merging_counter == 0:    
-                    print(self.id,"entro en merge por primera vez")           
-                    if len(self.scenario.merging_mean_rate) == 0:
-                        self.scenario.merging_mean_rate.append(c)
-                    if len(self.scenario.merging_mean_rate) > 0:
-                        self.scenario.merging_mean_rate.append(c)
+                #it is the first time I have to do the merge
+                if self.id == 33:
+                    print(self.id,"entro en merge por primera vez",len(self.pending_model_list))           
+                self.scenario.merging_mean_rate.append(c)
 
-                    # primero meto todos los pendings con el mismo id en la lista para merge
-                    for pend_model in self.pending_model_list:
-                        if pend_model.id == self.pending_model_list[0].id:
-                            self.list_to_merge.append(pend_model)
+                # primero meto todos los pendings con el mismo id en la lista para merge
+                for pend_model in self.pending_model_list:
+                    if pend_model.id == self.pending_model_list[0].id:
+                        self.list_to_merge.append(pend_model)
 
-              
-                    # borro todos los pendings porque ya los he metido en merge
-                    # no hacer cuando hay mas de un modelo distinto, con distinto id
-                    self.pending_model_list = []
-                    
-                    # segundo hago un merge de los pendings
-                    for pm in self.list_to_merge:
-                        if pm != self.list_to_merge[0]:
-                            self.list_to_merge[0].contributions.update(pm.contributions)
+            
+                # borro todos los pendings porque ya los he metido en merge
+                # no hacer cuando hay mas de un modelo distinto, con distinto id
+                # self.pending_model_list = []
+                
+                # segundo hago un merge de los pendings
+                for pm in self.list_to_merge:
+                    if pm != self.list_to_merge[0]:
+                        self.list_to_merge[0].contributions.update(pm.contributions)
 
-                    # borro todos los merge menos el primero
-                    merged_model = self.list_to_merge[0]
-                    self.list_to_merge = []
-                    self.list_to_merge.append(merged_model)
+                # borro todos los merge menos el primero
+                merged_model = self.list_to_merge[0]
+                self.list_to_merge = []
+                self.list_to_merge.append(merged_model)
 
 
-                    if len(self.observations) > 0:
+                if len(self.observations) > 0:
+                    if self.id == 33:
                         print(self.id,"tengo observations")
-                        # if I have an observation that is not in my stored model neither in the merged model, then I have to train the model
-                        if len(self.model_list)> 0:
-                            for model in self.model_list:
-                                if model.id == self.list_to_merge[0].id:
-                                    for lm, slots in self.observations.items():
-                                        for slot in slots:
-                                            observation = tuple((slot,lm,self.id))
-                                            if observation not in model.contributions.keys() and observation not in self.list_to_merge[0].contributions.keys(): 
-                                                self.not_yet = True
-                                                self.observation_to_train = observation
-                                                self.merging_counter = self.merging_counter + 1
-                                                print(self.id,"entro en el primer merge 1")
-                                                break
+                    # if I have an observation that is not in my stored model neither in the merged model, then I have to train the model
+                    if len(self.model_list)> 0:
+                        for model in self.model_list:
+                            if model.id == self.list_to_merge[0].id:
+                                for lm, slots in self.observations.items():
+                                    for slot in slots:
+                                        observation = tuple((slot,lm,self.id))
+                                        if observation not in model.contributions.keys() and observation not in self.list_to_merge[0].contributions.keys(): 
+                                            self.observation_to_train = observation
+                                            self.merging_counter = self.merging_counter + 1
+                                            if self.id == 33:
+                                                print(self.id,"encuentro observation que no esta en ninguna lista",self.observation_to_train)
+                                            break
 
-                        # if I have an observation but I have nothing to combine with, then let's start training the first model
-                        if len(self.model_list) == 0:
-                            for lm, slots in self.observations.items():
-                                for slot in slots:
-                                    observation = tuple((slot,lm,self.id))
-                                    if observation not in self.list_to_merge[0].contributions.keys(): 
-                                        self.not_yet = True
-                                        self.observation_to_train = observation
-                                        self.merging_counter = self.merging_counter + 1
-                                        print(self.id,"entro en el primer merge 2")
-                                        break
-                        
-    
-                    if len(self.observations) == 0 or self.not_yet == False:
+                    
+                    if len(self.model_list) == 0:
+                        for lm, slots in self.observations.items():
+                            for slot in slots:
+                                observation = tuple((slot,lm,self.id))
+                                if observation not in self.list_to_merge[0].contributions.keys(): 
+                                    self.observation_to_train = observation
+                                    self.merging_counter = self.merging_counter + 1
+                                    if self.id == 33:
+                                        print(self.id,"encuentro observation que no esta en merge (no tengo model)",self.observation_to_train)
+                                    if self.observation_to_train == tuple((5003, 0, 33)):
+                                        print("obser",self.observation_to_train,"-------")
+                                    
+                                    break
+                    
+
+                if len(self.observations) == 0:
+                    if self.id == 33:
                         print(self.id,"no tengo observations")
-                        # if I have no observation I include the merged pendings in my list directly
+                    # if I have no observation I include the merged pendings in my model list directly
 
-                        if len(self.model_list) == 0:
-                            # self.model_list.append(self.list_to_merge[0])
-                            # self.list_to_merge = []
-                            self.merging_counter = self.merging_counter + 1
-                            print(self.id,"entro en el primer merge 3")
+                    self.merging_counter = self.merging_counter + 1
+                    if self.id == 33:
+                        print(self.id,"no tengo observations y no se si modelos",self.merging_counter)
 
-                        if len(self.model_list) > 0:
-                            if self.model_list[0].id == self.list_to_merge[0].id:
-                                self.list_to_merge[0].contributions.update(self.model_list[0].contributions)
-                                self.model_list = []
-                                # self.model_list.append(self.list_to_merge[0])
-                                # self.list_to_merge = []
-                                self.merging_counter = self.merging_counter + 1
-                                print(self.id,"entro en el primer merge 4")
+                    if len(self.model_list) > 0:
+                        if self.model_list[0].id == self.list_to_merge[0].id:
+                            if self.id == 33:
+                                print("UPDATESSSS--->", len(self.list_to_merge[0].contributions),len(self.model_list[0].contributions))
+                            self.list_to_merge[0].contributions.update(self.model_list[0].contributions)
+                            if self.id == 33:
+                                print("UPDATESSSS--->", len(self.list_to_merge[0].contributions))
+                            self.model_list = []
+                            if self.id == 33:
+                                print(self.id,"SI modelo",self.merging_counter)
 
 
 
             if self.computing_counter == 0 and len(self.pending_model_list) == 0 and self.merging_counter == 0:
-                print(self.id, "entro sin pendings") 
+                if self.id == 33:
+                    print(self.id, "entro sin pendings") 
 
                 if len(self.observations) > 0:
-                        print(self.id,"tengo observations 2 ")
-                        # if I have an observation that is not in my stored model neither in the merged model, then I have to train the model
-                        if len(self.model_list)> 0:
-                            for model in self.model_list:
-                                for lm, slots in self.observations.items():
-                                    for slot in slots:
-                                        observation = tuple((slot,lm,self.id))
-                                        if observation not in model.contributions.keys(): 
-                                            self.not_yet = True
-                                            self.observation_to_train = observation
-                                            self.merging_counter = self.merging_counter + 1
-                                            print(self.id,"entro en el primer merge 1- 2")
-                                            break
-
-                        # if I have an observation but I have nothing to combine with, then let's start training the first model
-                        if len(self.model_list) == 0:
+                    if self.id == 33:
+                        print(self.id,"tengo observations sin pendings",len(self.model_list))
+                    # if I have an observation that is not in my stored model then I have to train the model
+                    if len(self.model_list)> 0:
+                        for model in self.model_list:
                             for lm, slots in self.observations.items():
                                 for slot in slots:
                                     observation = tuple((slot,lm,self.id))
                                     
-                                    self.not_yet = True
-                                    self.observation_to_train = observation
-                                    self.merging_counter = self.merging_counter + 1
-                                    print(self.id,"entro en el primer merge 2 -2")
-                                    break
-        
+                                    if self.id == 33:
+                                        print(observation)
+                                    if observation not in model.contributions.keys(): 
+                                        self.observation_to_train = observation
+                                        self.merging_counter = self.scenario.merging_time
+                                        # if self.id == 33:
+                                        #     print(self.id,"la observation no existia",self.merging_counter)
+                                        break
+
+                                    # if observation in model.contributions.keys(): 
+                                    #     if self.id == 33:
+                                    #         print(self.id,"la observation ya existe",self.merging_counter)
+
+
+                    # if I have an observation but I have nothing to combine with, then let's start training the first model
+                    if len(self.model_list) == 0:
+                        for lm, slots in self.observations.items():
+                            for slot in slots:
+                                observation = tuple((slot,lm,self.id))
+                                self.observation_to_train = observation
+                                self.merging_counter = self.scenario.merging_time
+                                if self.id == 33:
+                                    print(self.id,"entro en sin pendings pero con observations y SIN modelo",self.merging_counter)
+                                break
+
+                if len(self.observations) == 0:
+                    if self.id == 33:
+                        print(self.id,"tampoco tengo observations")
+
+    
 
             # if I just need to increase the merging counter, go here
             if self.merging_counter > 0 and self.merging_counter < self.scenario.merging_time:
                 self.merging_counter = self.merging_counter + 1
-                print(self.id,"entro merge ", self.merging_counter)
+                if self.id == 33:
+                    print(self.id,"entro en incrementar merging counter ", self.merging_counter)
                         
 
-            if self.merging_counter == self.scenario.merging_time and self.computing_counter == 0 and len(self.list_to_merge) > 0:
-                if self.not_yet == False:
-                    print("entro pero no tengo nada para training",len(self.pending_model_list))
-                    self.model_list.append(self.list_to_merge[0])
-                    self.list_to_merge = []
+            if self.merging_counter == self.scenario.merging_time and self.computing_counter == 0: 
+                if self.id == 33:
+                    print("fin del merging")
                 self.merging_counter = 0
-                self.not_yet_merged = True
-                print(self.id,"termino el merge", len(self.model_list))
-                    
 
-            if self.computing_counter > 0 and self.merging_counter == 0:
-                self.computing_counter += 1
-                print(self.id,"entro en computing", self.computing_counter)
-
-                if self.computing_counter == self.scenario.computing_time:
-                    if len(self.model_list) > 0:
+                if len(self.list_to_merge) > 0:
+                    if self.id == 33:
+                        print("tengo merged")
+                    if len(self.model_list)> 0:
+                        if self.id == 33:
+                            print("tengo model")
                         if self.model_list[0].id == self.list_to_merge[0].id:
+                            if self.id == 33:
+                                print("UPDATESSSS--->", len(self.list_to_merge[0].contributions),len(self.model_list[0].contributions))
                             self.list_to_merge[0].contributions.update(self.model_list[0].contributions)
-                            self.model_list=[]
-                    
-
-                    self.list_to_merge[0].contributions[self.observation_to_train] = c
-                    self.observation_to_train = None
-                        
-                    self.model_list.append(self.list_to_merge[0])
+                            if self.id == 33:
+                                print("UPDATESSSS--->", len(self.list_to_merge[0].contributions))
+                            self.model_list = []
+                    self.model_list.append(self.list_to_merge[0].copy())
+                    if self.id == 33:
+                        print(self.id, "meto el merged en el modelo")
                     self.list_to_merge = []
-                    self.computing_counter = 0
-                    print("termino el computing y lo meto",len(self.model_list))
+                    self.pending_model_list = []
 
-            
-            if self.not_yet == True and self.not_yet_merged == True:
+                if len(self.list_to_merge) == 0:
+                    if len(self.model_list) == 0:
+                        self.model_list.append(self.scenario.zois_list[0].model_list[0].copy())
+
+                        
+                if self.observation_to_train:
+                    self.computing_counter = self.computing_counter + 1
+
+                if self.observation_to_train == None:
+                    self.computing_counter = self.scenario.computing_time
+
+
+            if self.computing_counter > 0 and self.computing_counter < self.scenario.computing_time:
                 self.computing_counter += 1
-                self.not_yet = False
-                self.not_yet_merged = False
+                if self.id == 33:
+                    print(self.id,"entro en computing + 1", self.computing_counter)
+
+            if self.computing_counter == self.scenario.computing_time:
+                self.computing_counter = 0
+                if self.observation_to_train:
+                    self.model_list[0].contributions[self.observation_to_train] = c
+                    self.observation_to_train = None
+                if self.id == 33:
+                    print("termino el computing y anado la obs---- o no habia obs",len(self.model_list))
+                    print(self.model_list[0].contributions)

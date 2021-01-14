@@ -269,10 +269,10 @@ while c < num_slots:
                     for key, value in model.contributions.items():
                         if key == tuple_observation:
                             suma = suma + 1
-                            if tuple_observation == tuple((1, 1, 137)):
+                            if tuple_observation == tuple((5003, 0, 33)):
                                 print("usu-->",usu.id, "observation", key, "sumaaa-->",suma)
 
-        if tuple_observation == tuple((1, 1, 137)):
+        if tuple_observation == tuple((5003, 0, 33)):
             print("obser",tuple_observation,"-------",suma,count,"total nodes:",nodes_in_zoi[0][c])
 
         if count > 0:

@@ -337,10 +337,8 @@ class Scenario:
     def getObservationsFromScenario(self,c):
         generated = False
         while not generated:
-            print("entro while")
             u = np.random.randint(200)
             for user in self.usr_list:
-                print(user.id,u)
                 if user.id == u and user.myFuture[c] != -1:
                     
                     random_landmark = np.random.randint(2)
@@ -349,19 +347,20 @@ class Scenario:
                     user.observations[random_landmark].append(c)
 
                     # if the node has no model, we give it a new model to start training
-                    if len(user.pending_model_list) == 0 and len(user.model_list):
+                    if len(user.pending_model_list) == 0 and len(user.model_list) == 0:
+                        if user.id == 33:
+                            print("genero una observacion random")
                         user.pending_model_list.append(self.zois_list[0].model_list[0].copy())
 
 
-                    if len(self.observations_mean_rate) == 0:
-                        self.observations_mean_rate.append(c)
-                    if len(self.observations_mean_rate) > 0:
-                        self.observations_mean_rate.append(c)
+                    
+                    self.observations_mean_rate.append(c)
 
                     self.observations_counter += 1
                     if c > 5000 and len(self.observations_processing_list) < 100:
                         self.observations_processing_list.append(tuple((c,random_landmark,user.id)))
-                        print("METO UNA NUEVA OBSERVATION---->", tuple((c,random_landmark,user.id)))    
+                        if tuple((5003, 0, 33)) == tuple((c,random_landmark,user.id)):
+                            print("METO UNA NUEVA OBSERVATION---->", tuple((c,random_landmark,user.id)))    
 
                     generated = True
                     break
